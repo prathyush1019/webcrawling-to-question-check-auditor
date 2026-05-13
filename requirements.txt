@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pydantic
+beautifulsoup4
+playwright
+httpx
+google-genai
+python-dotenv
+requests
+python-multipart
