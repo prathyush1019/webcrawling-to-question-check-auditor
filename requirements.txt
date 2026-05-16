@@ -8,3 +8,5 @@ google-genai
 python-dotenv
 requests
 python-multipart
+numpy
+azure-cognitiveservices-speech

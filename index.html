@@ -26,8 +26,39 @@
         <div class="nav-tabs">
             <button class="nav-tab active" data-page="crawler">🕷 Crawler</button>
             <button class="nav-tab" data-page="agent">🤖 Agent Builder</button>
+            <button class="nav-tab" data-page="rag">🧪 RAG Bot</button>
+            <button class="nav-tab" data-page="lab">🧪 Instruction Lab</button>
+            <button class="nav-tab" data-page="rewriter">✍️ Agent Rewriter</button>
+            <button id="viewLogsBtn" class="nav-tab" style="color:var(--secondary); font-weight:800;">📜 View
+                Logs</button>
         </div>
     </nav>
+
+    <!-- Logs Modal -->
+    <div id="logsModal" class="modal-overlay hidden">
+        <div class="modal-box glass" style="max-width: 1000px; width: 90%;">
+            <div class="modal-header">
+                <div>
+                    <h3>📜 System Performance Logs</h3>
+                    <div class="modal-subtitle">Real-time audit of LLM latency, crawler activity, and RAG accuracy.
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button id="refreshLogsBtn" class="btn-secondary"
+                        style="padding:0.4rem 0.8rem; font-size:0.7rem;">🔄 Refresh</button>
+                    <button id="closeLogsModal" class="modal-close">✕</button>
+                </div>
+            </div>
+            <div class="logs-container glass" style="background:rgba(0,0,0,0.6); border-radius:8px; margin-top:1rem;">
+                <pre id="logsContent"
+                    style="padding:1rem; font-family:'JetBrains Mono', monospace; font-size:0.75rem; color:#a5f3fc; white-space:pre-wrap; max-height:500px; overflow-y:auto; margin:0;"></pre>
+            </div>
+            <div class="modal-footer" style="justify-content: flex-end; padding-top:1rem;">
+                <p style="font-size:0.7rem; color:var(--text-dim); margin-right:auto;">Showing last 500 lines.</p>
+                <button id="downloadFullLogBtn" class="btn-secondary">📥 Download .log</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ══════════════════════ PAGE 1: CRAWLER ══════════════════════ -->
     <div id="page-crawler" class="page active">
@@ -41,14 +72,14 @@
             <section class="input-container glass">
                 <div class="mode-selector">
                     <button class="mode-btn active" data-mode="deep">Deep Research (Standard)</button>
-                    <button class="mode-btn" data-mode="maximum">Forensic Depth (Thorough)</button>
+                    <button class="mode-btn" data-mode="maximum">Forensic Depth (Thorough & Dynamic)</button>
                 </div>
                 <div class="input-group">
                     <input type="text" id="urlInput" placeholder="https://example.com" autocomplete="off">
                     <div class="limit-box"><label for="limitInput">Limit:</label><input type="number" id="limitInput"
-                            value="30" min="1" max="200"></div>
+                            value="100" min="1" max="1000"></div>
                     <div class="limit-box"><label for="concurrencyInput">Workers:</label><input type="number"
-                            id="concurrencyInput" value="2" min="1" max="10"></div>
+                            id="concurrencyInput" value="5" min="1" max="20"></div>
                     <div class="checkbox-group">
                         <input type="checkbox" id="subdomainToggle">
                         <label for="subdomainToggle">Subdomains</label>
@@ -116,6 +147,7 @@
                     </div>
                     <div class="kb-output-actions">
                         <button id="downloadKbBtn" class="btn-secondary">⬇ Download .txt</button>
+                        <button id="sendToRagBtn" class="btn-secondary">🧪 Send to RAG Bot</button>
                         <button id="sendToAgentBtn" class="btn-glow">🤖 Evaluate &amp; Send to Agent Builder →</button>
                     </div>
                 </div>
@@ -161,9 +193,41 @@
 
             <!-- ── Section 2: KB Input ── -->
             <section class="input-container glass">
-                <div class="section-label">Knowledge Base Context</div>
+                <div class="output-header" style="padding:0; margin-bottom:0.5rem; border:none; background:none;">
+                    <div class="section-label" style="margin:0;">Knowledge Base Context</div>
+                    <button id="generateQaBtn" class="btn-glow-primary"
+                        style="font-size:0.75rem; padding: 0.4rem 0.8rem;">✨ Generate Test Q&A</button>
+                </div>
                 <textarea id="agentKbInput" class="kb-textarea"
                     placeholder="Paste your Knowledge Base here, or use 'Evaluate &amp; Send to Agent Builder' from the Crawler tab..."></textarea>
+            </section>
+
+            <!-- Moved QA Section Here -->
+            <section id="qaSection" class="glass output-section hidden">
+                <div class="output-header">
+                    <div class="kb-output-title"><span>💬</span>
+                        <h3>Sample Interaction Set</h3>
+                    </div>
+                    <div style="display:flex; gap:0.5rem;">
+                        <button id="downloadQaBtn" class="btn-secondary hidden">📥 Download Full Q&A</button>
+                        <button id="copyQuestionsBtn" class="btn-secondary hidden">📋 Copy Questions</button>
+                    </div>
+                </div>
+                <div class="loader-container" id="qaLoader" style="display:none;">
+                    <div class="spinner"></div><span>Generating 25+ Q&A pairs...</span>
+                </div>
+
+                <div class="qa-grid">
+                    <div class="qa-output-card glass">
+                        <div class="qa-output-header">📦 JSON Format (Full Dataset)</div>
+                        <pre id="qaOutput" class="qa-pre-wrap"></pre>
+                    </div>
+                    <div class="qa-output-card glass">
+                        <div class="qa-output-header">📝 Text Format (Questions Only)</div>
+                        <textarea id="qaPlainText" class="qa-textarea-wrap" readonly
+                            placeholder="Questions will appear here line-by-line..."></textarea>
+                    </div>
+                </div>
             </section>
 
             <!-- ── Section 3: Strategy & Config ── -->
@@ -176,8 +240,7 @@
                         <button class="mode-btn" data-type="Sales">Sales</button>
                         <button class="mode-btn" data-type="B2B">B2B</button>
                         <button class="mode-btn" data-type="B2C">B2C</button>
-                        <button class="mode-btn" data-type="C2B">C2B</button>
-                        <button class="mode-btn" data-type="enquiry">Enquiry</button>
+                        <button class="mode-btn" data-type="Enquiry">Enquiry</button>
                         <button class="mode-btn" data-type="Lead Generation">Lead Gen</button>
                     </div>
                 </div>
@@ -188,6 +251,17 @@
                         <button class="mode-btn active" data-dir="Inbound">⬇ Inbound Call</button>
                         <button class="mode-btn" data-dir="Outbound">⬆ Outbound Call</button>
                     </div>
+                </div>
+
+                <div class="config-block">
+                    <span class="config-label">Performance Config</span>
+                    <div class="mode-selector" id="latencyTabs" style="max-width:340px;">
+                        <button class="mode-btn active" data-latency="standard">Standard Latency</button>
+                        <button class="mode-btn" data-latency="optimized">Optimized (Low Latency)</button>
+                    </div>
+                    <p style="font-size:0.75rem; color:var(--text-dim); margin-top:0.2rem;">
+                        💡 Optimized mode reduces response time while maintaining high accuracy.
+                    </p>
                 </div>
 
                 <div class="config-block">
@@ -223,11 +297,29 @@
                     <div class="kb-output-title"><span>🌿</span>
                         <h3>Conversational Flow Logic</h3>
                     </div>
-                    <button id="downloadFlowBtn" class="btn-secondary">📥 Download Flow .md</button>
+                    <div style="display:flex; gap:0.5rem;">
+                        <button id="downloadFlowBtn" class="btn-secondary">📥 Download Flow .md</button>
+                    </div>
                 </div>
-                <div id="mermaidContainer" class="mermaid-container"></div>
-                <div id="flowTreeContent" class="instructions-content hidden" style="white-space: pre-wrap;"></div>
-                <p style="font-size:0.75rem; color:var(--text-dim); margin-top:0.8rem; text-align:center;">
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top:1rem;">
+                    <!-- Left: Editor -->
+                    <div style="display:flex; flex-direction:column; gap:0.8rem;">
+                        <div class="section-label" style="margin:0;">Edit Flow Syntax (Mermaid)</div>
+                        <textarea id="flowTreeEditor" class="agent-prompt" style="height: 400px; font-size:0.75rem;" placeholder="graph TD..."></textarea>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button id="updateFlowDiagramBtn" class="btn-glow" style="background:var(--secondary); font-size:0.8rem; flex:1;">🔄 Update Diagram</button>
+                            <button id="appendFlowToKbBtn" class="btn-outline" style="font-size:0.8rem; flex:1;">🔗 Append to KB</button>
+                        </div>
+                    </div>
+                    <!-- Right: Visualization -->
+                    <div style="display:flex; flex-direction:column; gap:0.8rem;">
+                        <div class="section-label" style="margin:0;">Visual Representation</div>
+                        <div id="mermaidContainer" class="mermaid-container glass" style="flex:1; min-height:400px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.2); overflow:auto; border-radius:12px;"></div>
+                    </div>
+                </div>
+
+                <p style="font-size:0.75rem; color:var(--text-dim); margin-top:1.2rem; text-align:center;">
                     💡 This logic tree will be automatically used to refine the final agent instructions.
                 </p>
             </section>
@@ -246,6 +338,10 @@
                         <div class="auditor-text-col">
                             <div class="auditor-badge" id="auditorBadge">✅ VERIFIED</div>
                             <p id="auditorReasoning" class="auditor-reasoning"></p>
+                            <div class="latency-report">
+                                <span id="modelPill" class="model-badge" style="font-size:0.65rem;"></span>
+                                <span id="latencyPill" class="latency-pill"></span>
+                            </div>
                             <p id="refinedStatus" class="refined-status"></p>
                         </div>
                     </div>
@@ -258,26 +354,15 @@
                             <h3>Final Instruction Set</h3>
                         </div>
                         <div class="kb-output-actions">
+
                             <button id="downloadInstructionBtn" class="btn-secondary">📥 Download .txt</button>
-                            <button id="generateQaBtn" class="btn-outline">✨ Generate Q&amp;A</button>
+                            <button id="sendAgentToRagBtn" class="btn-glow-primary" style="font-size:0.8rem;">🚀 Deploy
+                                to RAG Lab</button>
                         </div>
                     </div>
                     <div id="finalInstructions" class="instructions-content"></div>
                 </section>
 
-                <!-- QA Section -->
-                <section id="qaSection" class="glass output-section hidden">
-                    <div class="output-header">
-                        <div class="kb-output-title"><span>💬</span>
-                            <h3>Sample Q&amp;A Set</h3>
-                        </div>
-                        <button id="downloadQaBtn" class="btn-secondary hidden">📥 Download Q&amp;A</button>
-                    </div>
-                    <div class="loader-container" id="qaLoader" style="display:none;">
-                        <div class="spinner"></div><span>Generating 25+ Q&amp;A pairs...</span>
-                    </div>
-                    <pre id="qaOutput" class="qa-output hidden"></pre>
-                </section>
 
             </div>
 
@@ -348,14 +433,417 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+
+    <!-- ══════════════════════ PAGE 3: RAG LAB ══════════════════════ -->
+    <div id="page-rag" class="page">
+        <main class="container">
+            <header>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h1 class="glow-text">RAG Bot Intelligence</h1>
+                    <div id="ttsToggle" class="tts-toggle-pill">
+                        <span class="icon">🔇</span>
+                        <span class="label">TTS Off</span>
+                    </div>
+                </div>
+                <p class="subtitle">Search, retrieve, and chat with your Knowledge Base using vector intelligence.</p>
+            </header>
+
+            <section class="input-container glass">
+                <div class="section-label">0. Knowledge Base Source</div>
+                <textarea id="ragKbInput" class="kb-textarea" style="min-height:120px;"
+                    placeholder="Paste Knowledge Base here or send from Crawler..."></textarea>
+            </section>
+
+            <section class="input-container glass">
+                <div class="section-label">1. Agent Persona Alignment (Optional)</div>
+                <p style="font-size:0.85rem; color:var(--text-dim); margin-bottom:1rem;">
+                    Provide instructions or a system prompt to define the bot's behavior and tone.
+                </p>
+                <textarea id="ragAgentInstructions" class="prompt-textarea" style="min-height:100px;"
+                    placeholder="e.g. You are a polite sales assistant. Use the 'Aaliyah' persona..."></textarea>
+            </section>
+
+            <section class="input-container glass">
+                <div class="section-label">2. Indexing Knowledge</div>
+                <p style="font-size:0.85rem; color:var(--text-dim); margin-bottom:1rem;">
+                    Chunk your Knowledge Base and convert it into high-dimensional vector embeddings.
+                </p>
+                <div class="input-group" style="gap:1rem; display:grid; grid-template-columns: 1fr 1fr;">
+                    <div class="premium-input-group">
+                        <div class="premium-input-header">
+                            <label>Chunk Size</label>
+                            <span class="premium-input-val" id="chunkSizeVal">800</span>
+                        </div>
+                        <input type="range" id="ragChunkSize" class="premium-range" min="100" max="2000" step="100"
+                            value="800">
+                    </div>
+                    <div class="premium-input-group">
+                        <div class="premium-input-header">
+                            <label>Overlap</label>
+                            <span class="premium-input-val" id="overlapVal">100</span>
+                        </div>
+                        <input type="range" id="ragOverlap" class="premium-range" min="0" max="500" step="10"
+                            value="100">
+                    </div>
+                    <div class="premium-input-group" style="grid-column: span 2;">
+                        <div class="premium-input-header">
+                            <label>Retrieval Depth (Top K)</label>
+                            <span class="premium-input-val" id="ragTopKVal">3</span>
+                        </div>
+                        <input type="range" id="ragTopK" class="premium-range" min="1" max="10" step="1"
+                            value="3">
+                        <p style="font-size: 0.65rem; color: var(--text-dim); margin-top: 0.3rem;">Number of context chunks sent to the LLM per query.</p>
+                    </div>
+                </div>
+                <button id="ragIndexBtn" class="btn-glow-primary" style="margin-top:1rem; width:100%;">
+                    <span>📥 Index Knowledge Base</span>
+                    <div class="spinner hidden" id="ragIndexLoader"></div>
+                </button>
+                <div id="ragIndexStatus" class="status-pill hidden" style="margin-top:0.8rem; text-align:center;"></div>
+            </section>
+
+            <section class="input-container glass">
+                <div class="section-label">2. Raw Knowledge Search</div>
+                <p style="font-size:0.85rem; color:var(--text-dim); margin-bottom:1rem;">
+                    Perform a pure semantic search across the knowledge base without persona influence.
+                </p>
+                <div class="icon-input-wrap">
+                    <span class="input-icon">🔍</span>
+                    <input type="text" id="ragQueryInput" placeholder="Search the knowledge base..." autocomplete="off">
+                    <button id="ragQueryMic" class="mic-btn">🎤</button>
+                </div>
+                <button id="ragQueryBtn" class="btn-glow" style="margin-top:1rem; width:100%;" disabled>
+                    <span>🚀 Search Raw KB</span>
+                    <div class="spinner hidden" id="ragQueryLoader"></div>
+                </button>
+
+                <!-- Raw Results Area -->
+                <div id="ragQueryResults" class="hidden" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;"></div>
+            </section>
+
+            <section class="input-container glass">
+                <div class="section-label">3. Agent-Guided Intelligence Chat</div>
+                <p style="font-size:0.85rem; color:var(--text-dim); margin-bottom:1rem;">
+                    Ask questions to your AI Agent. The bot remembers the conversation history and follows your
+                    instruction set.
+                </p>
+
+                <!-- Chat Transcript Area -->
+                <div id="ragOutput" class="instructions-content" style="white-space: pre-wrap; margin-top: 1rem; max-height: 400px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div id="ragAnswer" style="min-height: 50px; color: var(--text-dim);">Ready for your first question...</div>
+                </div>
+
+                <div id="ragMeta" class="latency-pills hidden" style="margin-top:0.8rem; display:flex; gap:0.5rem; align-items:center;">
+                    <span class="latency-pill" id="ragLatency"></span>
+                    <span class="latency-pill" id="ragModel"></span>
+                    <span id="ragScore" class="stat-badge" style="background:rgba(16,185,129,0.1); border-color:rgba(16,185,129,0.3); color:#10b981; font-size:0.7rem;">Score: --%</span>
+                </div>
+
+                <!-- Unified Input Area -->
+                <div class="icon-input-wrap" style="margin-top: 1.5rem;">
+                    <span class="input-icon">💬</span>
+                    <input type="text" id="agentGuidedQueryInput" placeholder="Type your message here..." autocomplete="off">
+                    <button id="agentGuidedMic" class="mic-btn">🎤</button>
+                </div>
+                <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:0.75rem; margin-top:1.5rem;">
+                    <button id="agentGuidedQueryBtn" class="btn-glow-primary" disabled>
+                        <span>🤖 Send to Agent</span>
+                        <div class="spinner hidden" id="agentGuidedQueryLoader"></div>
+                    </button>
+                    <button id="openAutoChatBtn" class="btn-secondary">🧪 Quick Test</button>
+                    <button id="openAuditorBtn" class="btn-glow-primary" style="background:var(--secondary); border-color:var(--secondary-glow);">🔍 Open Auditor</button>
+                    <button id="clearRagChatBtn" class="btn-secondary" title="Reset Conversation">🗑️ Clear Chat</button>
+                </div>
+                
+                <!-- 🧪 Diagnostic Resolution Bar (Scoped to RAG Page) -->
+                <div id="ragPerformanceBar" class="hidden" style="margin-top: 1.5rem; padding: 1.25rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; backdrop-filter: blur(10px);">
+                    <div style="display: flex; align-items: center; gap: 1.5rem;">
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">Average Accuracy</span>
+                            <span id="avgAuditScoreMain" style="font-size: 1.5rem; font-weight: 800; color: #10b981;">0%</span>
+                        </div>
+                        <div style="line-height: 1.3;">
+                            <div style="font-size: 0.85rem; font-weight: 700; color: var(--emerald);">✨ Failures detected.</div>
+                            <div style="font-size: 0.7rem; color: var(--text-dim);">Refinement module is ready to optimize instructions.</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button id="viewRefineStrategyMainBtn" class="btn-outline" style="font-size: 0.75rem; padding: 0.5rem 1rem;">📄 View Refine Strategy</button>
+                        <button id="sendToLabMainBtn" class="btn-glow" style="background: var(--emerald); font-size: 0.75rem; padding: 0.5rem 1rem;">🧪 Send to Instruction Lab</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Automated Chat Modal -->
+    <div id="autoChatOverlay" class="modal-overlay hidden">
+        <div class="modal-box glass">
+            <div class="modal-header">
+                <div>
+                    <h3>🤖 Automated Agent Testing</h3>
+                    <div class="modal-subtitle">Sequential verification of KB accuracy</div>
+                </div>
+                <button id="closeAutoChat" class="modal-close">✕</button>
+            </div>
+
+            <div id="autoChatProgress" class="progress-container" style="margin-top:0.5rem;">
+                <div class="progress-bar-wrap">
+                    <div id="autoChatProgressBar" class="progress-bar" style="width: 0%"></div>
+                </div>
+                <div id="autoChatStatus" style="font-size:0.75rem; color:var(--text-dim); margin-top:0.5rem;">Ready to
+                    start...</div>
+            </div>
+
+            <div id="autoChatLog" class="chat-log-container" style="max-height: 350px; background: rgba(0,0,0,0.4);">
+                <!-- Messages will appear here -->
+            </div>
+
+            <div class="modal-footer" style="justify-content: flex-end;">
+                <button id="startAutoChatBtn" class="btn-glow-primary">🚀 Start Automation</button>
+            </div>
+        </div>
+    </div>
+
+            <div class="modal-footer" style="justify-content: space-between;">
+                <div id="auditSummary" class="hidden" style="font-size: 0.85rem; color: var(--text-main); flex: 1;">
+                    Average Accuracy: <span id="avgAuditScore" style="font-weight: 800; color: #10b981;">0%</span>
+                    <span id="refineHint" class="hidden" style="margin-left:1rem; color:var(--secondary); opacity:0.8;">✨ Failures detected. Refinement module is ready.</span>
+                </div>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <button id="viewRefineStrategyBtn" class="btn-outline hidden" style="font-size:0.75rem;">📄 View Refine Strategy</button>
+                    <button id="refineAgentBtn" class="btn-glow hidden" style="background:var(--secondary); border-color:var(--secondary-glow);">✨ Refine Agent with Findings</button>
+                    <button id="downloadViolationReport" class="btn-glow-primary hidden" style="background:#ef4444; border-color:#ef4444;">🚨 Download Violation Report</button>
+                    <button id="downloadAuditReport" class="btn-secondary hidden">📥 Download Full Report</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ══════════════════════ PAGE 4: AGENT REWRITER ══════════════════════ -->
+    <div id="page-rewriter" class="page">
+        <main class="container">
+            <header>
+                <h1 class="glow-text">Agent Rewriter</h1>
+                <p class="subtitle">Optimize, clean, and refine agent instructions using AI.</p>
+            </header>
+
+            <div class="grid-2">
+                <!-- Left: Control -->
+                <section class="glass" style="padding: 2rem;">
+                    <div style="margin-bottom: 1.5rem;">
+                        <div class="section-label">1. Current Instructions</div>
+                        <textarea id="rewriterInput" class="agent-prompt" 
+                            placeholder="Paste your current instructions here..." 
+                            style="height: 380px; width: 100%;"></textarea>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <div class="section-label">2. Rewriting Goal / Instructions</div>
+                        <textarea id="rewritingGoal" class="agent-prompt" 
+                            placeholder="e.g. 'Make it more professional', 'Add a rule about repeating questions'..." 
+                            style="height: 120px; border-color: var(--secondary); width: 100%;"></textarea>
+                    </div>
+
+                    <button id="runRewriterBtn" class="btn-glow" style="background:var(--secondary); border-color:var(--secondary-glow); padding: 1.2rem; margin-top: auto; width: 100%;">✨ AI Rewrite Instructions</button>
+                </section>
+
+                <!-- Right: Result -->
+                <section class="glass" style="padding: 2rem;">
+                    <div class="section-label">3. Refined Output</div>
+                    <div id="rewriterOutput" class="agent-prompt custom-scrollbar" style="height: 580px; overflow-y: auto; background: rgba(0,0,0,0.4); border: 1px solid var(--secondary-glow); color: var(--secondary-glow); padding: 1.5rem; border-radius: 12px; white-space: pre-wrap;">
+                        <div class="empty-state">Output will appear here...</div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                        <button id="copyRewriterBtn" class="btn-secondary" style="flex: 1;">📋 Copy to Clipboard</button>
+                        <button id="applyRewriterToBuilderBtn" class="btn-glow" style="flex: 1;">🚀 Send to RAG Bot</button>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- ══════════════════════ PAGE 5: INSTRUCTION LAB ══════════════════════ -->
+    <div id="page-lab" class="page">
+        <main class="container" style="max-width: 1200px;">
+            <header>
+                <h1 class="glow-text">Instruction Lab</h1>
+                <p class="subtitle">Data-driven prompt engineering. Feed audit failures to optimize your agent.</p>
+            </header>
+
+            <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: stretch;">
+                <!-- Left: Inputs -->
+                <section class="glass" style="padding: 2.5rem;">
+                    <div style="margin-bottom: 2rem;">
+                        <div class="section-label">1. Base Instructions</div>
+                        <textarea id="labInstructionsInput" class="agent-prompt" 
+                            placeholder="Paste the current agent instructions here..." 
+                            style="height: 280px; width: 100%;"></textarea>
+                    </div>
+
+                    <div style="margin-bottom: 2rem;">
+                        <div class="section-label">2. Audit Failure Data (JSON)</div>
+                        <textarea id="labAuditInput" class="agent-prompt" 
+                            placeholder='[{"q": "...", "a": "...", "violation": "...", "justification": "..."}]' 
+                            style="height: 280px; border-color: var(--secondary); width: 100%;"></textarea>
+                    </div>
+
+                    <button id="runLabRefineBtn" class="btn-glow" style="background:var(--emerald); border-color:var(--emerald-glow); padding: 1.2rem; width: 100%;">🧪 Run Diagnostic Refinement</button>
+                </section>
+                <!-- Right: Analysis & Output -->
+                <section class="glass" style="padding: 2.5rem;">
+                    <div id="labEmptyState" class="empty-state-container" style="display: flex; align-items: center; justify-content: center; height: 100%; text-align: center; color: var(--text-dim);">
+                        <div>
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">🧪</div>
+                            <h3>Awaiting Analysis</h3>
+                            <p>Feed audit failures on the left to generate optimized instructions.</p>
+                        </div>
+                    </div>
+
+                    <div id="labResultsSection" class="hidden" style="height: 100%; display: flex; flex-direction: column;">
+                        <div class="section-label">3. Diagnostic Gap Analysis</div>
+                        <div id="labGapAnalysis" class="glass" style="padding: 1.5rem; margin-bottom: 2rem; border-color: #f87171; background: rgba(248, 113, 113, 0.05); min-height: 100px;"></div>
+
+                        <div class="section-label">4. Optimized Instructions</div>
+                        <div id="labRefinedOutput" class="agent-prompt" style="flex: 1; min-height: 400px; overflow-y: auto; background: rgba(0,0,0,0.4); border: 1px solid var(--emerald-glow); color: #fff; padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem;"></div>
+
+                        <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: auto;">
+                            <button id="copyLabOutputBtn" class="btn-secondary" style="width: 100%;">📋 Copy Optimized Prompt</button>
+                            <button id="sendLabToRewriterBtn" class="btn-glow" style="width: 100%; background: var(--secondary); border-color: var(--secondary-glow); padding: 1.2rem;">✨ Move to Agent Rewriter for Final Polishing</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- 🔍 Intelligence Auditor Modal (Integrated within RAG) -->
+    <div id="ragAuditOverlay" class="modal-overlay hidden">
+        <div class="modal-content glass" style="max-width: 1100px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <div>
+                    <h3>🔍 Intelligence Auditor</h3>
+                    <p class="modal-subtitle">Batch verify agent performance and instruction alignment.</p>
+                </div>
+                <button id="closeRagAudit" class="modal-close">✕</button>
+            </div>
+            
+            <div class="auditor-grid" style="flex: 1; overflow: hidden; display: grid; grid-template-columns: 360px 1fr;">
+                <!-- Sidebar -->
+                <div class="auditor-sidebar" style="padding: 1.5rem; background: rgba(0,0,0,0.2); border-right: 1px solid var(--glass-border); overflow-y: auto; display: flex; flex-direction: column; gap: 1rem;">
+                    <div class="section-label">1. Test Questions</div>
+                    <textarea id="auditQuestionsInput" class="glass-input" style="flex: 1; min-height: 200px; font-size: 0.8rem;"
+                        placeholder="Enter questions (one per line)..."></textarea>
+                    
+                    <button id="runAuditBtn" class="btn-glow-primary" style="width: 100%;">🚀 Run Full Audit</button>
+                    
+                    <div id="auditProgress" class="hidden">
+                        <div class="progress-bar-wrap">
+                            <div id="auditProgressBar" class="progress-bar"></div>
+                        </div>
+                        <div id="auditStatusText" style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.5rem; text-align: center;">0/0 Completed</div>
+                    </div>
+
+                    <!-- Summary removed here, moved to RAG page bar as requested -->
+                </div>
+
+                <!-- Main Area -->
+                <div class="auditor-main" style="padding: 2rem; overflow-y: auto; background: rgba(255,255,255,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem;">
+                        <div>
+                            <div class="section-label" style="margin: 0;">2. Diagnostic Results Feed</div>
+                            <div style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.3rem;">Real-time analysis of agent responses against ground-truth intelligence.</div>
+                        </div>
+                        <span id="auditStatusText" style="font-size: 0.75rem; color: var(--primary); font-weight: 700; letter-spacing: 0.05em;">READY TO START</span>
+                    </div>
+                    <div id="auditResultsList" class="audit-results-container">
+                        <div class="empty-state" style="padding: 4rem 2rem; opacity: 0.5;">
+                            <div style="font-size: 2.5rem; margin-bottom: 1rem;">🔍</div>
+                            <div>Enter test questions in the sidebar and run the audit to generate a diagnostic report.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="display: flex; flex-direction: column; gap: 1rem; padding: 1.5rem; background: rgba(0,0,0,0.2); border-top: 1px solid var(--glass-border);">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div style="font-size: 0.8rem; color: var(--text-dim);">Diagnostic verification complete. Results reflected on the RAG Bot page.</div>
+                    <button id="closeRagAuditBtn" class="btn-secondary">Dismiss Auditor</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>
-        mermaid.initialize({ 
-            startOnLoad: false, 
-            theme: 'dark', 
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
             securityLevel: 'loose'
         });
     </script>
+    <!-- Refine Strategy Modal -->
+    <div id="refineStrategyOverlay" class="modal-overlay hidden">
+        <div class="modal-content glass" style="max-width: 800px; max-height: 85vh;">
+            <div class="modal-header">
+                <h3>Refinement Logic & Strategy</h3>
+                <button id="closeRefineStrategy" class="close-btn">&times;</button>
+            </div>
+            <div style="padding: 1rem; color: var(--text-main); overflow-y: auto;">
+                <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1rem;">This is the specialized prompt sent to the Engineering Agent to update your instructions based on audit failures.</p>
+                <pre id="refineStrategyContent" style="background: rgba(0,0,0,0.4); padding: 1rem; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; white-space: pre-wrap; border: 1px solid var(--secondary); color: var(--secondary-glow);"></pre>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.8rem;">
+                <button id="closeRefineStrategyBtn" class="btn-secondary">Close View</button>
+                <button id="applyStrategyToLabBtn" class="btn-glow" style="background: var(--emerald);">🧪 Apply to Instruction Lab</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Refinement Comparison Modal -->
+    <div id="refineDiffOverlay" class="modal-overlay hidden">
+        <div class="modal-content glass" style="max-width: 1000px; max-height: 90vh;">
+            <div class="modal-header">
+                <h3>Refinement Impact Report</h3>
+                <button id="closeRefineDiff" class="close-btn">&times;</button>
+            </div>
+            <div style="padding: 1rem; color: var(--text-main); overflow-y: auto;">
+                <!-- Analysis Section -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                    <div class="glass" style="padding: 1rem; border-color: #ef4444;">
+                        <h4 style="color: #ef4444; margin-top: 0;">❌ Instruction Gaps (Old)</h4>
+                        <div id="gapAnalysisContent" style="font-size: 0.85rem; line-height: 1.4;"></div>
+                    </div>
+                    <div class="glass" style="padding: 1rem; border-color: #10b981;">
+                        <h4 style="color: #10b981; margin-top: 0;">✅ Changes & Improvements (New)</h4>
+                        <div id="changesMadeContent" style="font-size: 0.85rem; line-height: 1.4;"></div>
+                    </div>
+                </div>
+
+                <!-- Comparison Section -->
+                <div class="section-label">Detailed Instruction Comparison</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <div style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 0.3rem;">PREVIOUS VERSION</div>
+                        <pre id="oldInstructionsView" style="background: rgba(0,0,0,0.4); padding: 0.8rem; border-radius: 6px; font-size: 0.75rem; white-space: pre-wrap; height: 300px; overflow-y: auto; border: 1px solid #334155;"></pre>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 0.3rem;">REFINED VERSION</div>
+                        <pre id="newInstructionsView" style="background: rgba(16, 185, 129, 0.05); padding: 0.8rem; border-radius: 6px; font-size: 0.75rem; white-space: pre-wrap; height: 300px; overflow-y: auto; border: 1px solid #10b981;"></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="closeRefineDiffBtn" class="btn-secondary">Close Report</button>
+                <button id="applyRefinedBtn" class="btn-glow" style="background: #10b981; border-color: #10b981;">🚀 Apply New Instructions</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/script.js"></script>
 </body>
 
