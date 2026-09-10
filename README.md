@@ -1219,7 +1219,3 @@ GitHub: https://github.com/prathyush1019
 LinkedIn: https://www.linkedin.com/in/prathyush-p-1b13a223a/
 
 ---
-
-# License
-
-Add the appropriate license for the intended use of this repository.
